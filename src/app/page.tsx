@@ -81,7 +81,8 @@ export default function Home() {
     4: 1.2,
     5: 1.5,
     6: 2.0,
-  }[horseCount];
+  }[horseCount] ?? 1.0;
+  
 
   const generateHorses = (count: number): Horse[] => {
     const shuffled = [...ALL_HORSE_NAMES].sort(() => 0.5 - Math.random());
