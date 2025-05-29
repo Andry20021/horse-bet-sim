@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './lib/firebaseConfig';
 import { useRef } from 'react';
 import { GrMoney } from "react-icons/gr";
@@ -8,6 +8,8 @@ import { GiHorseHead } from "react-icons/gi";
 import { IoLogoGithub } from "react-icons/io";
 import { SiLinkedin } from "react-icons/si";
 import { MdEmail } from "react-icons/md";
+import Image from 'next/image';
+import type { User } from 'firebase/auth';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -55,7 +57,13 @@ export default function Home() {
   const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState('');
   const [balance, setBalance] = useState(10000);
-  const [horseStats, setHorseStats] = useState<Record<string, any>>({});
+  type HorseStats = {
+    totalWins: number;
+    totalLosses: number;
+    totalPayout: number;
+  };
+
+  const [horseStats, setHorseStats] = useState<Record<string, HorseStats>>({});
 
   const [liveFeed, setLiveFeed] = useState<string[]>([
     "Welcome to the Horse Racing Simulator!",
@@ -68,7 +76,8 @@ export default function Home() {
 
 
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -82,7 +91,7 @@ export default function Home() {
     5: 1.5,
     6: 2.0,
   }[horseCount] ?? 1.0;
-  
+
 
   const generateHorses = (count: number): Horse[] => {
     const shuffled = [...ALL_HORSE_NAMES].sort(() => 0.5 - Math.random());
@@ -116,6 +125,21 @@ export default function Home() {
     }
   };
 
+  const loadStats = useCallback(async () => {
+    const entries = await Promise.all(
+      horses.map(async (horse) => {
+        try {
+          const ref = doc(db, 'horses', horse.name);
+          const snap = await getDoc(ref);
+          return [horse.name, snap.exists() ? snap.data() : { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
+        } catch {
+          return [horse.name, { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
+        }
+      })
+    );
+    setHorseStats(Object.fromEntries(entries));
+  }, [horses]);
+  
   useEffect(() => {
     ensureAllHorsesExist();
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
@@ -141,7 +165,7 @@ export default function Home() {
   useEffect(() => {
     if (horses.length === 0) return;
     loadStats();
-  }, [horses]);
+  }, [horses, loadStats]);
 
   useEffect(() => {
     if (!raceOn) return;
@@ -202,7 +226,6 @@ export default function Home() {
       }
     };
 
-
     const interval = setInterval(() => {
       setPositions((prev) => {
         const newPositions = prev.map((pos, i) =>
@@ -237,15 +260,14 @@ export default function Home() {
             raceEndedRef.current = true;
             handleRaceEnd(winningHorse.name, selectedHorse, bet, profit, payout, won);
           }
-
-
         }
         return newPositions;
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [raceOn, horses]);
+  }, [raceOn, horses, betAmount, payoutMultiplier, selectedHorseId, user]);
+
 
   const handleStartRace = () => {
     raceEndedRef.current = false;
@@ -264,8 +286,9 @@ export default function Home() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-    } catch (err: any) {
-      alert('Login failed: ' + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert('Login failed: ' + error.message);
     }
   };
 
@@ -280,10 +303,12 @@ export default function Home() {
         totalLosses: 0,
         totalProfit: 0,
       });
-    } catch (err: any) {
-      alert('Signup failed: ' + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert('Signup failed: ' + error.message);
     }
   };
+
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -337,29 +362,6 @@ export default function Home() {
     setDepositAmount('');
     setShowWallet(false);
   };
-
-  const loadStats = async () => {
-    const entries = await Promise.all(
-      horses.map(async (horse) => {
-        try {
-          const ref = doc(db, 'horses', horse.name);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            return [horse.name, snap.data()];
-          } else {
-            console.warn(`Missing in DB: ${horse.name}`);
-            return [horse.name, { wins: 0, losses: 0, payout: 0 }];
-          }
-        } catch (err) {
-          console.error(`Error fetching ${horse.name}:`, err);
-          return [horse.name, { wins: 0, losses: 0, payout: 0 }];
-        }
-      })
-    );
-    const stats = Object.fromEntries(entries);
-    setHorseStats(stats);
-  };
-
 
   return (
     <>
@@ -501,7 +503,7 @@ export default function Home() {
                     className="bg-[#2B2B2B] p-4 pr-8 ml-3 rounded-xl mb-3 shadow-md flex items-center justify-between"
                   >
                     <div className="flex items-center">
-                      <img
+                      <Image
                         src={horse.icon}
                         alt={horse.name}
                         className="w-13 h-12 mr-4 rounded-full"
@@ -616,7 +618,7 @@ export default function Home() {
                       }}
                     >
                       <div className="w-14 h-12flex items-center justify-center shadow-md">
-                        <img src={horse.icon} alt={horse.name} className="w-full h-full object-contain rounded" />
+                        <Image src={horse.icon} alt={horse.name} className="w-full h-full object-contain rounded" />
                       </div>
 
                       <span className="text-xs text-gray-300 mt-1 text-center w-24 truncate">
