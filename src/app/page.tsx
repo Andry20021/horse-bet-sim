@@ -69,7 +69,6 @@ export default function Home() {
     "Welcome to the Horse Racing Simulator!",
     "Made by Andry Astorga",
     "Enjoy!",
-    "Horses are approaching the gate...",
   ]);
 
   const [chatInput, setChatInput] = useState('');
@@ -139,7 +138,7 @@ export default function Home() {
     );
     setHorseStats(Object.fromEntries(entries));
   }, [horses]);
-  
+
   useEffect(() => {
     ensureAllHorsesExist();
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
@@ -506,8 +505,12 @@ export default function Home() {
                       <Image
                         src={horse.icon}
                         alt={horse.name}
+                        width={50}
+                        height={50}
+                        unoptimized
                         className="w-13 h-12 mr-4 rounded-full"
                       />
+
                       <div className='pl-5'>
                         <p className="text-white font-bold">{horse.name}</p>
                         <p className="text-sm text-gray-300">
@@ -618,7 +621,15 @@ export default function Home() {
                       }}
                     >
                       <div className="w-14 h-12flex items-center justify-center shadow-md">
-                        <Image src={horse.icon} alt={horse.name} className="w-full h-full object-contain rounded" />
+                        <Image
+                          src={horse.icon}
+                          alt={horse.name}
+                          width={60}
+                          height={60}
+                          unoptimized
+                          className="w-full h-full object-contain rounded"
+                        />
+
                       </div>
 
                       <span className="text-xs text-gray-300 mt-1 text-center w-24 truncate">
