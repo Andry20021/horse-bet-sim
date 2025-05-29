@@ -67,7 +67,6 @@ These are planned or in development:
 
 - 👥 **Multiplayer Support**: Real-time racing sessions with multiple players in the same room.
 - 🖼 **User Avatars**: Upload a custom profile image to appear in chat and on race UI.
-- 💬 **Persistent Chat System**: Store chat logs in Firestore so players see messages even after refreshing.
 - 🏆 **Leaderboard**: Global ranking of players based on total profit or win rate.
 - 🐴 **Custom Horse Breeding/Unlocks**: Users may unlock or create horses in future phases.
 - 🔒 **Username Uniqueness Enforcement**: Optional validation layer to prevent duplicate usernames.

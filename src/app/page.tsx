@@ -565,8 +565,7 @@ export default function Home() {
           </div>
         </div>
       )}
-
-
+      
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
 
