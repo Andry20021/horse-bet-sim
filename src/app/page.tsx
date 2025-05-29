@@ -1,6 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { auth, db } from './lib/firebaseConfig';
+import { useRef } from 'react';
+import { GrMoney } from "react-icons/gr";
+import { IoChatbubblesOutline } from "react-icons/io5";
+import { GiHorseHead } from "react-icons/gi";
+import { IoLogoGithub } from "react-icons/io";
+import { SiLinkedin } from "react-icons/si";
+import { MdEmail } from "react-icons/md";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -16,12 +23,16 @@ import {
   collection,
   addDoc,
 } from 'firebase/firestore';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 type Horse = {
   id: number;
   name: string;
   odds: number;
   speed: number;
+  icon: string;
 };
 
 const ALL_HORSE_NAMES = [
@@ -31,7 +42,11 @@ const ALL_HORSE_NAMES = [
   'Dark Comet', 'Electric Whisper', 'Vortex Vixen', 'Blitz Phantom', 'Nova Runner'
 ];
 
+const nameToIcon = (name: string) =>
+  `/images/${name.toLowerCase().replace(/ /g, '-')}.png`;
+
 export default function Home() {
+  const raceEndedRef = useRef(false);
   const [horseCount, setHorseCount] = useState(3);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [positions, setPositions] = useState<number[]>([]);
@@ -40,13 +55,25 @@ export default function Home() {
   const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState('');
   const [balance, setBalance] = useState(10000);
+  const [horseStats, setHorseStats] = useState<Record<string, any>>({});
+
+  const [liveFeed, setLiveFeed] = useState<string[]>([
+    "Welcome to the Horse Racing Simulator!",
+    "Made by Andry Astorga",
+    "Enjoy!",
+    "Horses are approaching the gate...",
+  ]);
+
+  const [chatInput, setChatInput] = useState('');
+
+
 
   const [user, setUser] = useState<any>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
-  const [showAddFunds, setShowAddFunds] = useState(false);
+  const [showWallet, setShowWallet] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
 
   const payoutMultiplier = {
@@ -57,12 +84,18 @@ export default function Home() {
   }[horseCount];
 
   const generateHorses = (count: number): Horse[] => {
-    const shuffledNames = [...ALL_HORSE_NAMES].sort(() => 0.5 - Math.random());
-    const selectedNames = shuffledNames.slice(0, count);
-    return selectedNames.map((name, index) => {
+    const shuffled = [...ALL_HORSE_NAMES].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, count);
+    return selected.map((name, i) => {
       const odds = parseFloat((Math.random() * 2 + 1.5).toFixed(2));
       const speed = 4.5 - odds;
-      return { id: index + 1, name, odds, speed };
+      return {
+        id: i + 1,
+        name,
+        odds,
+        speed,
+        icon: nameToIcon(name),
+      };
     });
   };
 
@@ -83,9 +116,9 @@ export default function Home() {
   };
 
   useEffect(() => {
+    ensureAllHorsesExist();
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        await ensureAllHorsesExist();
         const userRef = doc(db, 'users', currentUser.uid);
         const docSnap = await getDoc(userRef);
         if (docSnap.exists()) {
@@ -105,7 +138,70 @@ export default function Home() {
   }, [horseCount]);
 
   useEffect(() => {
+    if (horses.length === 0) return;
+    loadStats();
+  }, [horses]);
+
+  useEffect(() => {
     if (!raceOn) return;
+
+    const handleRaceEnd = async (
+      winningHorseName: string,
+      selectedHorse: Horse,
+      bet: number,
+      profit: number,
+      payout: number,
+      won: boolean
+    ) => {
+      const matchData = {
+        user: user?.uid || 'unknown',
+        bet: bet,
+        odds: selectedHorse.odds,
+        profit: profit,
+        result: won ? 'win' : 'loss',
+        selectedHorse: selectedHorse.name,
+        winningHorse: winningHorseName,
+        timestamp: Date.now(),
+      };
+
+      try {
+        await Promise.all(
+          horses.map((horse) => {
+            const ref = doc(db, 'horses', horse.name);
+            return updateDoc(ref, {
+              totalGames: increment(1),
+              totalWins: increment(horse.name === winningHorseName ? 1 : 0),
+              totalLosses: increment(horse.name !== winningHorseName ? 1 : 0),
+            });
+          })
+        );
+
+        if (won) {
+          const winningHorseRef = doc(db, 'horses', selectedHorse.name);
+          await updateDoc(winningHorseRef, {
+            totalPayout: increment(payout),
+          });
+        }
+
+        if (user) {
+          const userRef = doc(db, 'users', user.uid);
+          await updateDoc(userRef, {
+            totalGames: increment(1),
+            totalWins: increment(won ? 1 : 0),
+            totalLosses: increment(won ? 0 : 1),
+            totalProfit: increment(profit),
+            ...(won ? { balance: increment(payout) } : {}),
+          });
+        }
+
+        const matchRef = collection(db, 'matchHistory');
+        await addDoc(matchRef, matchData);
+      } catch (err) {
+        console.error('Failed to handle race end:', err);
+      }
+    };
+
+
     const interval = setInterval(() => {
       setPositions((prev) => {
         const newPositions = prev.map((pos, i) =>
@@ -121,15 +217,6 @@ export default function Home() {
           const bet = parseFloat(betAmount);
           if (!selectedHorse || isNaN(bet)) return newPositions;
 
-          horses.forEach((horse) => {
-            const ref = doc(db, 'horses', horse.name);
-            updateDoc(ref, {
-              totalGames: increment(1),
-              totalWins: increment(horse.name === winningHorse.name ? 1 : 0),
-              totalLosses: increment(horse.name !== winningHorse.name ? 1 : 0),
-            });
-          });
-
           const won = selectedHorse.name === winningHorse.name;
           const payout = won ? bet * selectedHorse.odds * payoutMultiplier : 0;
           const profit = won ? payout - bet : -bet;
@@ -141,41 +228,26 @@ export default function Home() {
             });
           }
 
-          const matchData = {
-            amount: bet,
-            odds: selectedHorse.odds,
-            result: won ? 'win' : 'loss',
-            selectedHorse: selectedHorse.name,
-            winningHorse: winningHorse.name,
-            profit: profit,
-            timestamp: Date.now(),
-          };
-
-          if (user) {
-            const userRef = doc(db, 'users', user.uid);
-            updateDoc(userRef, {
-              totalGames: increment(1),
-              totalWins: increment(won ? 1 : 0),
-              totalLosses: increment(won ? 0 : 1),
-              totalProfit: increment(profit),
-              ...(won ? { balance: increment(payout) } : {}),
-            });
-            setBalance((prev) => prev + profit + (won ? bet : 0));
-
-            const matchRef = collection(userRef, 'matchHistory');
-            addDoc(matchRef, matchData);
+          if (won) {
+            setBalance((prev) => prev + payout);
           }
 
-          const globalMatchRef = collection(db, 'globalMatchHistory');
-          addDoc(globalMatchRef, matchData);
+          if (!raceEndedRef.current) {
+            raceEndedRef.current = true;
+            handleRaceEnd(winningHorse.name, selectedHorse, bet, profit, payout, won);
+          }
+
+
         }
         return newPositions;
       });
     }, 100);
+
     return () => clearInterval(interval);
   }, [raceOn, horses]);
 
   const handleStartRace = () => {
+    raceEndedRef.current = false;
     const bet = parseFloat(betAmount);
     if (!selectedHorseId || isNaN(bet) || bet <= 0 || bet > balance) return;
     setBalance((prev) => prev - bet);
@@ -220,12 +292,74 @@ export default function Home() {
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     if (!user || isNaN(amount) || amount <= 0) return;
+
+    const balanceBefore = balance;
+    const balanceAfter = balanceBefore + amount;
+
     const userRef = doc(db, 'users', user.uid);
     await updateDoc(userRef, { balance: increment(amount) });
-    setBalance((prev) => prev + amount);
+    setBalance(balanceAfter);
+
+    await addDoc(collection(db, 'transactions'), {
+      user: user.uid,
+      type: 'deposit',
+      amount,
+      balanceBefore,
+      balanceAfter,
+      timestamp: Date.now(),
+    });
+
     setDepositAmount('');
-    setShowAddFunds(false);
+    setShowWallet(false);
   };
+
+  const handleWithdraw = async () => {
+    const amount = parseFloat(depositAmount);
+    if (!user || isNaN(amount) || amount <= 0 || amount > balance) return;
+
+    const balanceBefore = balance;
+    const balanceAfter = balanceBefore - amount;
+
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, { balance: increment(-amount) });
+    setBalance(balanceAfter);
+
+    await addDoc(collection(db, 'transactions'), {
+      user: user.uid,
+      type: 'withdrawal',
+      amount,
+      balanceBefore,
+      balanceAfter,
+      timestamp: Date.now(),
+    });
+
+    setDepositAmount('');
+    setShowWallet(false);
+  };
+
+  const loadStats = async () => {
+    const entries = await Promise.all(
+      horses.map(async (horse) => {
+        try {
+          const ref = doc(db, 'horses', horse.name);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            return [horse.name, snap.data()];
+          } else {
+            console.warn(`Missing in DB: ${horse.name}`);
+            return [horse.name, { wins: 0, losses: 0, payout: 0 }];
+          }
+        } catch (err) {
+          console.error(`Error fetching ${horse.name}:`, err);
+          return [horse.name, { wins: 0, losses: 0, payout: 0 }];
+        }
+      })
+    );
+    const stats = Object.fromEntries(entries);
+    setHorseStats(stats);
+  };
+
+
   return (
     <>
       <header className="w-full z-50 px-8 py-4 flex justify-between items-center bg-[#1A1A1A] shadow-md">
@@ -233,15 +367,14 @@ export default function Home() {
         <div className="flex items-center space-x-6 text-sm text-gray-300">
           <a href="#" className="hover:text-white">Home</a>
           <a href="#" className="hover:text-white">Games</a>
-          <a href="#" className="hover:text-white">Rewards</a>
           {!user && <></>}
           {user && (
             <>
               <button
-                onClick={() => setShowAddFunds(true)}
+                onClick={() => setShowWallet(true)}
                 className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
               >
-                Add Funds
+                Wallet
               </button>
               <button
                 onClick={handleLogout}
@@ -295,155 +428,297 @@ export default function Home() {
         </div>
       )}
 
-      {showAddFunds && (
+      {showWallet && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
           <div className="bg-[#1E1E1E] p-6 rounded-lg w-full max-w-sm text-white shadow-lg border border-gray-700">
-            <h2 className="text-xl font-semibold mb-4 text-center">Add Funds</h2>
+            <h2 className="text-2xl font-bold mb-4 text-center text-green-400">Wallet</h2>
+
+            <div className="mb-4 text-center bg-[#2A2A2A] p-3 rounded border border-gray-600">
+              <p className="text-sm text-gray-400">Current Balance</p>
+              <p className="text-2xl font-bold text-green-300">${balance.toFixed(2)}</p>
+            </div>
+
             <input
               type="number"
               placeholder="Enter amount"
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
-              className="w-full px-4 py-2 mb-4 bg-[#333] border border-gray-500 rounded"
+              className="w-full px-4 py-2 mb-4 bg-[#333] border border-gray-500 rounded text-white"
             />
-            <div className="flex justify-between">
+
+            <div className="flex justify-between space-x-4">
               <button
                 onClick={handleDeposit}
-                className="bg-green-600 px-4 py-2 rounded hover:bg-green-700"
+                className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 w-1/2"
               >
                 Deposit
               </button>
               <button
-                onClick={() => setShowAddFunds(false)}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-700"
+                onClick={handleWithdraw}
+                className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 w-1/2"
               >
-                Cancel
+                Withdraw
               </button>
             </div>
+
+            <button
+              onClick={() => setShowWallet(false)}
+              className="mt-4 w-full bg-gray-600 px-4 py-2 rounded hover:bg-gray-700"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
 
+
+
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
-          <section className="flex justify-center items-center py-16 px-4">
-            <div className="bg-[#1E1E1E] w-full max-w-5xl aspect-video rounded-xl shadow-lg border border-gray-700 p-6">
+
+          <section className="relative flex justify-center items-center py-16 px-4">
+
+            <div className="absolute left-0 top-16 flex flex-col space-y-4 pl-8 z-30">
+              {horses.map((horse) => {
+                const stats = horseStats[horse.name];
+                if (!stats) return null;
+
+                const chartData = {
+                  labels: ['Wins', 'Losses'],
+                  datasets: [
+                    {
+                      data: [stats.totalWins, stats.totalLosses],
+                      backgroundColor: ['#4CAF50', '#F44336'],
+                      borderWidth: 0,
+                    },
+                  ],
+                };
+
+                return (
+                  <div
+                    key={horse.id}
+                    className="bg-[#2B2B2B] p-4 pr-8 ml-3 rounded-xl mb-3 shadow-md flex items-center justify-between"
+                  >
+                    <div className="flex items-center">
+                      <img
+                        src={horse.icon}
+                        alt={horse.name}
+                        className="w-13 h-12 mr-4 rounded-full"
+                      />
+                      <div className='pl-5'>
+                        <p className="text-white font-bold">{horse.name}</p>
+                        <p className="text-sm text-gray-300">
+                          Wins: {stats.totalWins} | Losses: {stats.totalLosses}
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          Payout: ${stats.totalPayout?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="w-20 h-20 pl-3 ml-4">
+                      <Pie
+                        data={chartData}
+                        options={{
+                          plugins: {
+                            legend: { display: false },
+                          },
+                          maintainAspectRatio: false,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="bg-[#1E1E1E] w-full max-w-5xl aspect-video rounded-xl shadow-lg border border-gray-700 p-5 z-10">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">🏇 Horse Racing Simulator</h2>
-                <div className="text-sm bg-[#333] px-4 py-2 rounded shadow border border-gray-600">
-                  💰 Balance: ${balance.toLocaleString()}
+                <GiHorseHead className="w-16 h-12 object-contain rounded" />
+
+                <h2 className="text-xl font-semibold pl-26">Horse Racing Simulator</h2>
+
+                <div className="flex items-center text-sm bg-[#333] px-4 py-2 rounded shadow border border-gray-600 space-x-2">
+                  <GrMoney className='text-yellow-300' />
+                  <span>Balance: ${balance.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="relative h-full w-full bg-[#2A2A2A] rounded-lg overflow-hidden px-4 pt-4 pb-8">
-                {!raceOn && !winner && (
-                  <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-60 rounded-lg">
-                    <div className="bg-[#1E1E1E] p-6 rounded-lg border border-gray-600 w-full max-w-md">
-                      <h3 className="text-xl font-semibold mb-4 text-center">Place Your Bet</h3>
-                      <label className="block mb-1">Number of Horses:</label>
-                      <select
-                        value={horseCount}
-                        onChange={(e) => setHorseCount(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 bg-[#333] border border-gray-600 rounded text-white mb-4"
-                      >
-                        {[3, 4, 5, 6].map((count) => (
-                          <option key={count} value={count}>
-                            {count} Horses
-                          </option>
-                        ))}
-                      </select>
 
-                      <div className="space-y-3 mb-4">
-                        {horses.map((horse) => (
-                          <label key={horse.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="horse"
-                              value={horse.id}
-                              checked={selectedHorseId === horse.id}
-                              onChange={() => setSelectedHorseId(horse.id)}
-                              className="accent-green-500"
-                            />
-                            <span>{horse.name} (Odds: {horse.odds}x)</span>
-                          </label>
-                        ))}
+              <div className="relative h-full w-full bg-[#000000] rounded-lg overflow-hidden px-4 pt-2 pb-4">
+                <div className="relative h-full w-full rounded-lg overflow-hidden px-4 pt-4 pb-8">
+                  {!raceOn && !winner && (
+                    <div className="absolute inset-0 flex flex-col justify-center items-center k bg-opacity-60 rounded-lg">
+                      <div className="bg-[#1E1E1E] p-3 rounded-lg border border-gray-600 w-full max-w-md z-50 relative">
+                        <h3 className="text-xl font-semibold mb-4 text-center">Place Your Bet</h3>
+                        <label className="block mb-1">Number of Horses:</label>
+                        <select
+                          value={horseCount}
+                          onChange={(e) => setHorseCount(parseInt(e.target.value))}
+                          className="w-full px-3 py-2 bg-[#333] border border-gray-600 rounded text-white mb-4"
+                        >
+                          {[3, 4, 5, 6].map((count) => (
+                            <option key={count} value={count}>
+                              {count} Horses
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="space-y-3 mb-4">
+                          {horses.map((horse) => (
+                            <label key={horse.id} className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="horse"
+                                value={horse.id}
+                                checked={selectedHorseId === horse.id}
+                                onChange={() => setSelectedHorseId(horse.id)}
+                                className="accent-green-500"
+                              />
+                              <span>{horse.name} (Odds: {horse.odds}x)</span>
+                            </label>
+                          ))}
+                        </div>
+
+                        <input
+                          type="number"
+                          placeholder="Enter bet amount"
+                          value={betAmount}
+                          onChange={(e) => setBetAmount(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#333] border border-gray-500 rounded text-white"
+                        />
+
+                        <button
+                          onClick={handleStartRace}
+                          className="mt-4 w-full bg-green-600 py-2 rounded hover:bg-green-700 disabled:bg-gray-600"
+                          disabled={
+                            !selectedHorseId ||
+                            !betAmount ||
+                            parseFloat(betAmount) <= 0 ||
+                            parseFloat(betAmount) > balance
+                          }
+                        >
+                          Start Race
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {horses.map((horse, i) => (
+                    <div
+                      key={horse.id}
+                      className="absolute flex flex-col items-center"
+                      style={{
+                        top: `${i * 80 + 20}px`,
+                        left: `${positions[i]}%`,
+                        transition: 'left 0.1s linear',
+                      }}
+                    >
+                      <div className="w-14 h-12flex items-center justify-center shadow-md">
+                        <img src={horse.icon} alt={horse.name} className="w-full h-full object-contain rounded" />
                       </div>
 
-                      <input
-                        type="number"
-                        placeholder="Enter bet amount"
-                        value={betAmount}
-                        onChange={(e) => setBetAmount(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#333] border border-gray-500 rounded text-white"
-                      />
-
-                      <button
-                        onClick={handleStartRace}
-                        className="mt-4 w-full bg-green-600 py-2 rounded hover:bg-green-700 disabled:bg-gray-600"
-                        disabled={
-                          !selectedHorseId ||
-                          !betAmount ||
-                          parseFloat(betAmount) <= 0 ||
-                          parseFloat(betAmount) > balance
-                        }
-                      >
-                        Start Race
-                      </button>
+                      <span className="text-xs text-gray-300 mt-1 text-center w-24 truncate">
+                        {horse.name}
+                      </span>
                     </div>
-                  </div>
-                )}
+                  ))}
 
-                {horses.map((horse, i) => (
-                  <div
-                    key={horse.id}
-                    className="absolute flex flex-col items-center"
-                    style={{
-                      top: `${i * 80 + 20}px`,
-                      left: `${positions[i]}%`,
-                      transition: 'left 0.1s linear',
-                    }}
-                  >
-                    <div className="w-16 h-10 rounded bg-white text-black flex items-center justify-center text-sm font-bold shadow">
-                      🐎
-                    </div>
-                    <span className="text-xs text-gray-300 mt-1 text-center w-24 truncate">
-                      {horse.name}
-                    </span>
-                  </div>
-                ))}
-
-                {winner && (
-                  <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-60 rounded-lg">
-                    <div className="bg-[#1E1E1E] px-8 py-6 rounded-lg shadow-lg border border-green-600 text-center">
-                      <h3 className="text-2xl font-bold text-green-400 mb-2">🏆 Winner!</h3>
-                      <p className="text-xl">{winner}</p>
-                      <p className="text-sm text-gray-400 mt-2">
-                        {horses.find((h) => h.id === selectedHorseId)?.name === winner
-                          ? `You won $${(
+                  {winner && (
+                    <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-60 rounded-lg">
+                      <div className="bg-[#1E1E1E] px-8 py-6 rounded-lg shadow-lg border border-green-600 text-center">
+                        <h3 className="text-2xl font-bold text-green-400 mb-2">🏆 Winner!</h3>
+                        <p className="text-xl">{winner}</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          {horses.find((h) => h.id === selectedHorseId)?.name === winner
+                            ? `You won $${(
                               parseFloat(betAmount) *
                               horses.find((h) => h.id === selectedHorseId)!.odds *
                               payoutMultiplier
                             ).toFixed(2)}!`
-                          : 'Better luck next time!'}
-                      </p>
-                      <button
-                        onClick={() => {
-                          const fresh = generateHorses(horseCount);
-                          setHorses(fresh);
-                          setPositions(new Array(horseCount).fill(0));
-                          setWinner(null);
-                          setBetAmount('');
-                          setSelectedHorseId(null);
-                        }}
-                        className="mt-4 bg-green-600 px-5 py-2 rounded hover:bg-green-700"
-                      >
-                        Play Again
-                      </button>
+                            : 'Better luck next time!'}
+                        </p>
+                        <button
+                          onClick={() => {
+                            const fresh = generateHorses(horseCount);
+                            setHorses(fresh);
+                            setPositions(new Array(horseCount).fill(0));
+                            setWinner(null);
+                            setBetAmount('');
+                            setSelectedHorseId(null);
+                          }}
+                          className="mt-4 bg-green-600 px-5 py-2 rounded hover:bg-green-700"
+                        >
+                          Play Again
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+
+
             </div>
+
+
+            <div className="absolute right-0 top-16 pl-1 pr-7 z-30 w-103">
+              <div className="bg-[#1E1E1E] border border-gray-700 p-4 rounded-xl shadow-lg h-[32rem] flex flex-col">
+                <h3 className="text-white font-semibold text-lg mb-3 flex items-center space-x-2">
+                  <IoChatbubblesOutline />
+                  <span>Live Chat</span>
+                </h3>
+
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {liveFeed.map((entry, index) => (
+                    <div key={index} className="bg-[#2B2B2B] text-gray-300 text-sm p-2 rounded shadow-inner border border-gray-600">
+                      {entry}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex">
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && chatInput.trim()) {
+                        setLiveFeed((prev) => [...prev, chatInput.trim()]);
+                        setChatInput('');
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-l bg-[#333] text-white border-t border-l border-b border-gray-600 outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (chatInput.trim()) {
+                        setLiveFeed((prev) => [...prev, chatInput.trim()]);
+                        setChatInput('');
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-r text-white text-sm border-t border-r border-b border-gray-600"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-center space-x-6 text-gray-400 text-2xl">
+                <a href="https://www.linkedin.com/in/andry-astorga-1835441b2/" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                  <SiLinkedin />
+                </a>
+                <a href="https://github.com/andry20021" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                  <IoLogoGithub />
+                </a>
+                <a href="mailto:andryastorga5@gmail.com" className="hover:text-white">
+                  <MdEmail />
+                </a>
+              </div>
+
+            </div>
+
+
           </section>
         </main>
       )}
