@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🐎 HorseStake – Multiplayer Horse Betting Simulator
 
-## Getting Started
+**HorseStake** is an interactive horse betting simulator built with Next.js, Firebase, and TailwindCSS. Players can sign up, place bets on animated horse races, track their performance stats, and engage in live chat with other users.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 🎲 **Random Horse Races**: Each race selects 3–6 random horses from a pool of 20 unique names with randomized odds.
+- 💰 **Live Betting & Wallet**: Users start with $10,000 virtual currency and can deposit/withdraw as needed.
+- 📈 **Per-Horse Stats**: Wins, losses, and total payouts are tracked for every horse across all races.
+- 🧾 **Match History Logging**: Each race is recorded globally and per user.
+- 🗣 **Live Chat**: Users can send live messages that appear alongside their username.
+- 👤 **User Authentication**: Firebase Auth handles signup/login, with Firestore storing user balances, usernames, and stats.
+- 🧑‍💼 **Profile Management**: Users can change their username through a custom profile modal.
+- 🖼 **Pie Charts**: Every horse in the current race displays a win/loss pie chart.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 Tech Stack
 
-## Learn More
+- **Frontend**: React (Next.js with App Router)
+- **Styling**: TailwindCSS
+- **Backend**: Firebase Authentication + Firestore
+- **Charts**: Chart.js (via `react-chartjs-2`)
+- **Hosting**: Next.js + Firebase (for backend services)
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠 How to Run Locally
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/andry20021/horse-bet-sim.git
+   cd horse-bet-sim
+   ```
 
-## Deploy on Vercel
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Configure Firebase:
+   - Create a Firebase project.
+   - Enable **Authentication** (Email/Password).
+   - Enable **Firestore Database**.
+   - Create a `.env.local` file and add:
+     ```
+     NEXT_PUBLIC_FIREBASE_API_KEY=your_key_here
+     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+     NEXT_PUBLIC_FIREBASE_APP_ID=...
+     ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Run the app:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 🧪 In-Progress & Upcoming Features
+
+These are planned or in development:
+
+- 👥 **Multiplayer Support**: Real-time racing sessions with multiple players in the same room.
+- 🖼 **User Avatars**: Upload a custom profile image to appear in chat and on race UI.
+- 💬 **Persistent Chat System**: Store chat logs in Firestore so players see messages even after refreshing.
+- 🏆 **Leaderboard**: Global ranking of players based on total profit or win rate.
+- 🐴 **Custom Horse Breeding/Unlocks**: Users may unlock or create horses in future phases.
+- 🔒 **Username Uniqueness Enforcement**: Optional validation layer to prevent duplicate usernames.
+- 📲 **Mobile Responsiveness**: Improved mobile layout for seamless use on phones/tablets.
+
+---
+
+## 🤝 Acknowledgments
+
+Created by [Andry Astorga](https://www.linkedin.com/in/andry-astorga-1835441b2/).  
+Inspired by a love for strategy, luck, and competitive multiplayer games.
+
+---
+
+## 📬 Contact
+
+📧 andryastorga5@gmail.com  
+🔗 [LinkedIn](https://www.linkedin.com/in/andry-astorga-1835441b2/)  
+💻 [GitHub](https://github.com/andry20021)

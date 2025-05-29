@@ -24,6 +24,9 @@ import {
   increment,
   collection,
   addDoc,
+  getDocs,
+  query,
+  where,
 } from 'firebase/firestore';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -49,6 +52,11 @@ const nameToIcon = (name: string) =>
 
 export default function Home() {
   const raceEndedRef = useRef(false);
+  const [signupUsername, setSignupUsername] = useState('');
+  const [username, setUsername] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const [horseCount, setHorseCount] = useState(3);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [positions, setPositions] = useState<number[]>([]);
@@ -57,6 +65,14 @@ export default function Home() {
   const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState('');
   const [balance, setBalance] = useState(10000);
+  const [chatInput, setChatInput] = useState('');
+  const [user, setUser] = useState<User | null>(null);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [showWallet, setShowWallet] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+
   type HorseStats = {
     totalWins: number;
     totalLosses: number;
@@ -71,26 +87,12 @@ export default function Home() {
     "Enjoy!",
   ]);
 
-  const [chatInput, setChatInput] = useState('');
-
-
-
-  const [user, setUser] = useState<User | null>(null);
-
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-
-  const [showWallet, setShowWallet] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-
   const payoutMultiplier = {
     3: 1.0,
     4: 1.2,
     5: 1.5,
     6: 2.0,
   }[horseCount] ?? 1.0;
-
 
   const generateHorses = (count: number): Horse[] => {
     const shuffled = [...ALL_HORSE_NAMES].sort(() => 0.5 - Math.random());
@@ -148,6 +150,7 @@ export default function Home() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.balance !== undefined) setBalance(data.balance);
+          if (data.username) setUsername(data.username);
         }
       }
       setUser(currentUser);
@@ -267,7 +270,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [raceOn, horses, betAmount, payoutMultiplier, selectedHorseId, user]);
 
-
   const handleStartRace = () => {
     raceEndedRef.current = false;
     const bet = parseFloat(betAmount);
@@ -293,21 +295,31 @@ export default function Home() {
 
   const handleSignup = async () => {
     try {
+      const trimmedUsername = signupUsername.trim();
+
+      if (!trimmedUsername) {
+        alert('Username is required.');
+        return;
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
       const userRef = doc(db, 'users', userCredential.user.uid);
+
       await setDoc(userRef, {
+        username: trimmedUsername,
         balance: 10000,
         totalGames: 0,
         totalWins: 0,
         totalLosses: 0,
         totalProfit: 0,
       });
+
+      setSignupUsername('');
     } catch (err) {
       const error = err as Error;
       alert('Signup failed: ' + error.message);
     }
   };
-
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -378,23 +390,59 @@ export default function Home() {
               >
                 Wallet
               </button>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 px-3 py-1 rounded hover:bg-red-700"
-              >
-                Logout
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowAvatarDropdown((prev) => !prev)}
+                  className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center hover:bg-gray-500"
+                  title={username}
+                >
+                  <span className="text-white text-sm font-semibold">{username.charAt(0).toUpperCase() || "?"}</span>
+                </button>
+
+                {showAvatarDropdown && (
+                  <div className="absolute right-0 mt-2 bg-[#2B2B2B] border border-gray-700 rounded shadow-lg py-2 w-32 z-50">
+                    <button
+                      onClick={() => {
+                        setShowProfile(true);
+                        setShowAvatarDropdown(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+
+              </div>
+
             </>
           )}
         </div>
       </header>
 
       {!user && (
-        <div className="fixed inset-0 z-40 flex justify-center items-center bg-black bg-opacity-80">
+        <div className="fixed inset-0 z-40 flex justify-center items-center bg-black/70">
           <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-lg w-full max-w-sm text-white">
             <h2 className="text-2xl font-semibold mb-4 text-center">
               {authMode === 'login' ? 'Log In' : 'Sign Up'}
             </h2>
+
+            {authMode === 'signup' && (
+              <input
+                type="text"
+                placeholder="Username"
+                value={signupUsername}
+                onChange={(e) => setSignupUsername(e.target.value)}
+                className="w-full mb-3 px-4 py-2 rounded bg-[#333] border border-gray-600 text-white"
+              />
+            )}
+
             <input
               type="email"
               placeholder="Email"
@@ -431,7 +479,7 @@ export default function Home() {
       )}
 
       {showWallet && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-[#1E1E1E] p-6 rounded-lg w-full max-w-sm text-white shadow-lg border border-gray-700">
             <h2 className="text-2xl font-bold mb-4 text-center text-green-400">Wallet</h2>
 
@@ -473,13 +521,56 @@ export default function Home() {
         </div>
       )}
 
+      {showProfile && (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
+          <div className="bg-[#1E1E1E] p-6 rounded-lg w-full max-w-sm text-white shadow-lg border border-gray-700">
+            <h2 className="text-2xl font-bold mb-4 text-center text-green-400">Edit Profile</h2>
+
+            <div className="mb-4">
+              <label className="block mb-1 text-sm text-gray-300">New Username</label>
+              <input
+                type="text"
+                placeholder="Enter new username"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className="w-full px-4 py-2 bg-[#333] border border-gray-500 rounded text-white"
+              />
+            </div>
+
+            <button
+              onClick={async () => {
+                const trimmed = newUsername.trim();
+                if (!user || !trimmed) return;
+
+                const userRef = doc(db, 'users', user.uid);
+                await updateDoc(userRef, { username: trimmed });
+                setUsername(trimmed);
+                setNewUsername('');
+                setShowProfile(false);
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 py-2 rounded mb-3"
+            >
+              Save Changes
+            </button>
+
+            <button
+              onClick={() => {
+                setShowProfile(false);
+                setNewUsername('');
+              }}
+              className="w-full bg-gray-600 hover:bg-gray-700 py-2 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
 
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
 
           <section className="relative flex justify-center items-center py-16 px-4">
-
             <div className="absolute left-0 top-16 flex flex-col space-y-4 pl-8 z-30">
               {horses.map((horse) => {
                 const stats = horseStats[horse.name];
@@ -699,7 +790,7 @@ export default function Home() {
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && chatInput.trim()) {
-                        setLiveFeed((prev) => [...prev, chatInput.trim()]);
+                        setLiveFeed((prev) => [...prev, `${username}: ${chatInput.trim()}`]);
                         setChatInput('');
                       }
                     }}
@@ -708,7 +799,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       if (chatInput.trim()) {
-                        setLiveFeed((prev) => [...prev, chatInput.trim()]);
+                        setLiveFeed((prev) => [...prev, `${username}: ${chatInput.trim()}`]);
                         setChatInput('');
                       }
                     }}
