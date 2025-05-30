@@ -27,6 +27,13 @@
 
 ---
 
+## 🌐 Live Demo
+
+🔗 [https://horsepicks.me](https://horsepicks.me)  
+Secured with **HTTPS** using an SSL certificate issued by **Google Trust Services** via **Firebase Hosting** & **Cloudflare DNS**.
+
+---
+
 ## 🛠 How to Run Locally
 
 1. Clone the repo:
