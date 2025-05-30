@@ -23,7 +23,7 @@
 - **Styling**: TailwindCSS
 - **Backend**: Firebase Authentication + Firestore
 - **Charts**: Chart.js (via `react-chartjs-2`)
-- **Hosting**: Next.js + Firebase (for backend services)
+- **Hosting**: **Firebase App Hosting** (CI/CD deployment via GitHub)
 
 ---
 
@@ -45,7 +45,7 @@
    - Enable **Authentication** (Email/Password).
    - Enable **Firestore Database**.
    - Create a `.env.local` file and add:
-     ```
+     ```env
      NEXT_PUBLIC_FIREBASE_API_KEY=your_key_here
      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
      NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -54,10 +54,21 @@
      NEXT_PUBLIC_FIREBASE_APP_ID=...
      ```
 
-4. Run the app:
+4. Run the app locally:
    ```bash
    npm run dev
    ```
+
+---
+
+## 🚀 Production Deployment
+
+This project uses **Firebase App Hosting** with CI/CD:
+
+- Deployment is triggered automatically on every push to the `master` branch.
+- Environment variables for production are configured in `apphosting.yaml`.
+
+No need to manually run `npm run build` for deployment.
 
 ---
 
