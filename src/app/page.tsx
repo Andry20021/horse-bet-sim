@@ -373,54 +373,98 @@ export default function Home() {
 
   return (
     <>
-      <header className="w-full z-50 px-8 py-4 flex justify-between items-center bg-[#1A1A1A] shadow-md">
-        <div className="text-2xl font-bold text-green-400">HorsePicks</div>
-        <div className="flex items-center space-x-6 text-sm text-gray-300">
-          <a href="#" className="hover:text-white">Home</a>
-          <a href="#" className="hover:text-white">Games</a>
-          {!user && <></>}
-          {user && (
-            <>
-              <button
-                onClick={() => setShowWallet(true)}
-                className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
-              >
-                Wallet
-              </button>
-              <div className="relative">
+      <header className="w-full z-50 px-4 sm:px-8 py-4 bg-[#1A1A1A] shadow-md">
+        <div className="flex justify-between items-center">
+          <div className="text-2xl font-bold text-green-400">HorsePicks</div>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="text-white sm:hidden"
+            onClick={() => setShowAvatarDropdown((prev) => !prev)}
+          >
+            ☰
+          </button>
+
+          {/* Desktop Nav */}
+          <div className="hidden sm:flex items-center space-x-6 text-sm text-gray-300">
+            <a href="#" className="hover:text-white">Home</a>
+            <a href="#" className="hover:text-white">Games</a>
+            {user && (
+              <>
                 <button
-                  onClick={() => setShowAvatarDropdown((prev) => !prev)}
-                  className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center hover:bg-gray-500"
-                  title={username}
+                  onClick={() => setShowWallet(true)}
+                  className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
                 >
-                  <span className="text-white text-sm font-semibold">{username.charAt(0).toUpperCase() || "?"}</span>
+                  Wallet
                 </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowAvatarDropdown((prev) => !prev)}
+                    className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center hover:bg-gray-500"
+                    title={username}
+                  >
+                    <span className="text-white text-sm font-semibold">
+                      {username.charAt(0).toUpperCase() || "?"}
+                    </span>
+                  </button>
 
-                {showAvatarDropdown && (
-                  <div className="absolute right-0 mt-2 bg-[#2B2B2B] border border-gray-700 rounded shadow-lg py-2 w-32 z-50">
-                    <button
-                      onClick={() => {
-                        setShowProfile(true);
-                        setShowAvatarDropdown(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
-                    >
-                      Profile
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-
-              </div>
-
-            </>
-          )}
+                  {showAvatarDropdown && (
+                    <div className="absolute right-0 mt-2 bg-[#2B2B2B] border border-gray-700 rounded shadow-lg py-2 w-32 z-50">
+                      <button
+                        onClick={() => {
+                          setShowProfile(true);
+                          setShowAvatarDropdown(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                      >
+                        Profile
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Mobile Menu Dropdown */}
+        {showAvatarDropdown && (
+          <div className="sm:hidden mt-3 space-y-2 text-sm text-gray-300">
+            <a href="#" className="block px-2 py-1 hover:text-white">Home</a>
+            <a href="#" className="block px-2 py-1 hover:text-white">Games</a>
+            {user && (
+              <>
+                <button
+                  onClick={() => setShowWallet(true)}
+                  className="block w-full text-left bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white"
+                >
+                  Wallet
+                </button>
+                <button
+                  onClick={() => {
+                    setShowProfile(true);
+                    setShowAvatarDropdown(false);
+                  }}
+                  className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       {!user && (
