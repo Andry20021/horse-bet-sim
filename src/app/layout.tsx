@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: 'Horse Betting Simulator',
+  title: 'HorsePicks',
 };
 
 export default function RootLayout({

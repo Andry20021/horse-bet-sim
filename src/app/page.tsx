@@ -374,7 +374,7 @@ export default function Home() {
   return (
     <>
       <header className="w-full z-50 px-8 py-4 flex justify-between items-center bg-[#1A1A1A] shadow-md">
-        <div className="text-2xl font-bold text-green-400">HorseStake</div>
+        <div className="text-2xl font-bold text-green-400">HorsePicks</div>
         <div className="flex items-center space-x-6 text-sm text-gray-300">
           <a href="#" className="hover:text-white">Home</a>
           <a href="#" className="hover:text-white">Games</a>
