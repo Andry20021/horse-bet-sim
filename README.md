@@ -92,15 +92,8 @@ These are planned or in development:
 
 ---
 
-## 🤝 Acknowledgments
-
-Created by [Andry Astorga](https://www.linkedin.com/in/andry-astorga-1835441b2/).  
-Inspired by a love for strategy, luck, and competitive multiplayer games.
-
----
-
 ## 📬 Contact
 
-📧 andryastorga5@gmail.com  
+📧 [Email](andryastorga5@gmail.com)
 🔗 [LinkedIn](https://www.linkedin.com/in/andry-astorga-1835441b2/)  
 💻 [GitHub](https://github.com/andry20021)
