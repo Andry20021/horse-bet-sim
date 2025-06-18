@@ -2,14 +2,15 @@
 
 import React, { useState } from 'react';
 import {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-  } from 'firebase/auth';
-  import {
-    doc,
-    setDoc,
-  } from 'firebase/firestore';
-  import { auth, db } from '../lib/firebaseConfig';
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+} from 'firebase/auth';
+import {
+  doc,
+  setDoc,
+} from 'firebase/firestore';
+import { auth, db } from '../lib/firebaseConfig';
 
 const Login: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -54,6 +55,17 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleGuest = async () => {
+    try {
+      const guest = await signInAnonymously(auth);
+      console.log('Guest session started with UID:', guest.user.uid);
+      // You can store a default balance in app state (not Firestore) using context or state manager
+    } catch (err) {
+      const error = err as Error;
+      alert('Guest login failed: ' + error.message);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-40 flex justify-center items-center bg-black/70">
       <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-lg w-full max-w-sm text-white">
@@ -91,6 +103,13 @@ const Login: React.FC = () => {
           className="w-full bg-green-600 hover:bg-green-700 py-2 rounded mb-3"
         >
           {authMode === 'login' ? 'Log In' : 'Sign Up'}
+        </button>
+
+        <button
+          onClick={handleGuest}
+          className="w-full bg-gray-700 hover:bg-gray-800 py-2 rounded mb-3 text-sm"
+        >
+          Continue as Guest
         </button>
 
         <p className="text-center text-sm text-gray-400">
