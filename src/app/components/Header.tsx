@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signOut } from 'firebase/auth';
+import { signOut, User } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebaseConfig';
 
 interface HeaderProps {
-  user: any;
+  user: User | null;
   username: string;
   balance: number;
   setBalance: (val: number) => void;

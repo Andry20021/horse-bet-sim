@@ -59,7 +59,6 @@ const Login: React.FC = () => {
     try {
       const guest = await signInAnonymously(auth);
       console.log('Guest session started with UID:', guest.user.uid);
-      // You can store a default balance in app state (not Firestore) using context or state manager
     } catch (err) {
       const error = err as Error;
       alert('Guest login failed: ' + error.message);
