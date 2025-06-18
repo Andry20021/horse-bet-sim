@@ -1,21 +1,17 @@
 'use client';
 import Header from './components/Header';
+import LiveChat from './components/LiveChat';
 import { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './lib/firebaseConfig';
 import { useRef } from 'react';
 import { GrMoney } from "react-icons/gr";
-import { IoChatbubblesOutline } from "react-icons/io5";
 import { GiHorseHead } from "react-icons/gi";
-import { IoLogoGithub } from "react-icons/io";
-import { SiLinkedin } from "react-icons/si";
-import { MdEmail } from "react-icons/md";
 import Image from 'next/image';
 import type { User } from 'firebase/auth';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
 } from 'firebase/auth';
 import {
   doc,
@@ -52,9 +48,6 @@ export default function Home() {
   const raceEndedRef = useRef(false);
   const [signupUsername, setSignupUsername] = useState('');
   const [username, setUsername] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [showProfile, setShowProfile] = useState(false);
-  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const [horseCount, setHorseCount] = useState(3);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [positions, setPositions] = useState<number[]>([]);
@@ -63,13 +56,10 @@ export default function Home() {
   const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState('');
   const [balance, setBalance] = useState(10000);
-  const [chatInput, setChatInput] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [showWallet, setShowWallet] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
 
   type HorseStats = {
     totalWins: number;
@@ -78,12 +68,6 @@ export default function Home() {
   };
 
   const [horseStats, setHorseStats] = useState<Record<string, HorseStats>>({});
-
-  const [liveFeed, setLiveFeed] = useState<string[]>([
-    "Welcome to the Horse Racing Simulator!",
-    "Made by Andry Astorga",
-    "Enjoy!",
-  ]);
 
   const payoutMultiplier = {
     3: 1.0,
@@ -319,8 +303,6 @@ export default function Home() {
     }
   };
 
-
-
   return (
     <>
       <Header
@@ -386,6 +368,7 @@ export default function Home() {
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
           <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
+            
             <div className="w-full xl:w-1/5 flex flex-col space-y-4 z-30">
               {horses.map((horse) => {
                 const stats = horseStats[horse.name];
@@ -575,71 +558,9 @@ export default function Home() {
             </div>
 
 
-            <div className="w-full xl:w-1/5 z-30">
-              <div className="bg-[#1E1E1E] border border-gray-700 p-4 rounded-xl shadow-lg h-[32rem] flex flex-col">
-                <h3 className="text-white font-semibold text-lg mb-3 flex items-center space-x-2">
-                  <IoChatbubblesOutline />
-                  <span>Live Chat</span>
-                </h3>
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {liveFeed.map((entry, index) => (
-                    <div
-                      key={index}
-                      className="bg-[#2B2B2B] text-gray-300 text-sm p-2 rounded shadow-inner border border-gray-600"
-                    >
-                      {entry}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex">
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && chatInput.trim()) {
-                        setLiveFeed((prev) => [...prev, `${username}: ${chatInput.trim()}`]);
-                        setChatInput('');
-                      }
-                    }}
-                    className="flex-1 px-3 py-2 rounded-l bg-[#333] text-white border-t border-l border-b border-gray-600 outline-none"
-                  />
-                  <button
-                    onClick={() => {
-                      if (chatInput.trim()) {
-                        setLiveFeed((prev) => [...prev, `${username}: ${chatInput.trim()}`]);
-                        setChatInput('');
-                      }
-                    }}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-r text-white text-sm border-t border-r border-b border-gray-600"
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-              <div className="mt-4 flex justify-center space-x-6 text-gray-400 text-2xl">
-                <a
-                  href="https://www.linkedin.com/in/andry-astorga-1835441b2/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white"
-                >
-                  <SiLinkedin />
-                </a>
-                <a
-                  href="https://github.com/andry20021"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white"
-                >
-                  <IoLogoGithub />
-                </a>
-                <a href="mailto:andryastorga5@gmail.com" className="hover:text-white">
-                  <MdEmail />
-                </a>
-              </div>
-            </div>
+            <LiveChat username={username} />
+
+
           </section>
         </main>
       )}
