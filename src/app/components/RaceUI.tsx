@@ -145,6 +145,8 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
         return () => clearInterval(interval);
     }, [raceOn, horses, selectedHorseId, betAmount, payoutMultiplier, setBalance]);
 
+    
+
     return (
         <div className="w-full xl:w-3/5 bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-700 p-4 md:p-5 z-10">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">

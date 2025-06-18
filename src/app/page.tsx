@@ -33,6 +33,8 @@ export default function Home() {
     totalPayout: number;
   };
 
+
+
   const loadStats = useCallback(async () => {
     const entries = await Promise.all(
       horses.map(async (horse) => {
@@ -47,6 +49,8 @@ export default function Home() {
     );
     setHorseStats(Object.fromEntries(entries));
   }, [horses]);
+
+
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
@@ -69,8 +73,11 @@ export default function Home() {
     loadStats();
   }, [horses, loadStats]);
 
+
+
   return (
     <>
+    
       <Header
         user={user}
         username={username}
@@ -84,17 +91,22 @@ export default function Home() {
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
           <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
+
             <HorseStats horses={horses} horseStats={horseStats} />
+
             <RaceUI
               balance={balance}
               setBalance={setBalance}
               onHorsesReady={setHorses}
               onStatsReady={setHorseStats}
             />
+
             <LiveChat username={username} />
+
           </section>
         </main>
       )}
+
     </>
   );
 }
