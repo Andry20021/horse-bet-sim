@@ -1,7 +1,10 @@
 'use client';
+
 import Header from './components/Header';
 import LiveChat from './components/LiveChat';
 import HorseStats from './components/HorseStats';
+import Login from './components/Login';
+
 import { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './lib/firebaseConfig';
 import { useRef } from 'react';
@@ -11,8 +14,6 @@ import Image from 'next/image';
 import type { User } from 'firebase/auth';
 import {
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import {
   doc,
@@ -46,7 +47,6 @@ const nameToIcon = (name: string) =>
 
 export default function Home() {
   const raceEndedRef = useRef(false);
-  const [signupUsername, setSignupUsername] = useState('');
   const [username, setUsername] = useState('');
   const [horseCount, setHorseCount] = useState(3);
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -57,9 +57,6 @@ export default function Home() {
   const [betAmount, setBetAmount] = useState('');
   const [balance, setBalance] = useState(10000);
   const [user, setUser] = useState<User | null>(null);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   type HorseStats = {
     totalWins: number;
@@ -266,43 +263,6 @@ export default function Home() {
     setRaceOn(true);
   };
 
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-    } catch (err) {
-      const error = err as Error;
-      alert('Login failed: ' + error.message);
-    }
-  };
-
-  const handleSignup = async () => {
-    try {
-      const trimmedUsername = signupUsername.trim();
-
-      if (!trimmedUsername) {
-        alert('Username is required.');
-        return;
-      }
-
-      const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
-      const userRef = doc(db, 'users', userCredential.user.uid);
-
-      await setDoc(userRef, {
-        username: trimmedUsername,
-        balance: 10000,
-        totalGames: 0,
-        totalWins: 0,
-        totalLosses: 0,
-        totalProfit: 0,
-      });
-
-      setSignupUsername('');
-    } catch (err) {
-      const error = err as Error;
-      alert('Signup failed: ' + error.message);
-    }
-  };
-
   return (
     <>
       <Header
@@ -314,62 +274,14 @@ export default function Home() {
       />
 
       {!user && (
-        <div className="fixed inset-0 z-40 flex justify-center items-center bg-black/70">
-          <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-lg w-full max-w-sm text-white">
-            <h2 className="text-2xl font-semibold mb-4 text-center">
-              {authMode === 'login' ? 'Log In' : 'Sign Up'}
-            </h2>
-
-            {authMode === 'signup' && (
-              <input
-                type="text"
-                placeholder="Username"
-                value={signupUsername}
-                onChange={(e) => setSignupUsername(e.target.value)}
-                className="w-full mb-3 px-4 py-2 rounded bg-[#333] border border-gray-600 text-white"
-              />
-            )}
-
-            <input
-              type="email"
-              placeholder="Email"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              className="w-full mb-3 px-4 py-2 rounded bg-[#333] border border-gray-600"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              className="w-full mb-3 px-4 py-2 rounded bg-[#333] border border-gray-600"
-            />
-            <button
-              onClick={authMode === 'login' ? handleLogin : handleSignup}
-              className="w-full bg-green-600 hover:bg-green-700 py-2 rounded mb-3"
-            >
-              {authMode === 'login' ? 'Log In' : 'Sign Up'}
-            </button>
-            <p className="text-center text-sm text-gray-400">
-              {authMode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
-              <button
-                className="underline text-green-400"
-                onClick={() =>
-                  setAuthMode(authMode === 'login' ? 'signup' : 'login')
-                }
-              >
-                {authMode === 'login' ? 'Sign Up' : 'Log In'}
-              </button>
-            </p>
-          </div>
-        </div>
+        <Login/>
       )}
 
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
           <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
 
-          <HorseStats horses={horses} horseStats={horseStats} />
+            <HorseStats horses={horses} horseStats={horseStats} />
 
             <div className="w-full xl:w-3/5 bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-700 p-4 md:p-5 z-10">
               <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
