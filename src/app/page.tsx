@@ -1,6 +1,7 @@
 'use client';
 import Header from './components/Header';
 import LiveChat from './components/LiveChat';
+import HorseStats from './components/HorseStats';
 import { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './lib/firebaseConfig';
 import { useRef } from 'react';
@@ -22,7 +23,6 @@ import {
   collection,
   addDoc,
 } from 'firebase/firestore';
-import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -368,62 +368,8 @@ export default function Home() {
       {user && (
         <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
           <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
-            
-            <div className="w-full xl:w-1/5 flex flex-col space-y-4 z-30">
-              {horses.map((horse) => {
-                const stats = horseStats[horse.name];
-                if (!stats) return null;
 
-                const chartData = {
-                  labels: ['Wins', 'Losses'],
-                  datasets: [
-                    {
-                      data: [stats.totalWins, stats.totalLosses],
-                      backgroundColor: ['#4CAF50', '#F44336'],
-                      borderWidth: 0,
-                    },
-                  ],
-                };
-
-                return (
-                  <div
-                    key={horse.id}
-                    className="bg-[#2B2B2B] p-4 rounded-xl shadow-md flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <Image
-                        src={horse.icon}
-                        alt={horse.name}
-                        width={50}
-                        height={50}
-                        unoptimized
-                        className="w-13 h-12 mr-4 rounded-full"
-                      />
-                      <div className="pl-5">
-                        <p className="text-white font-bold">{horse.name}</p>
-                        <p className="text-sm text-gray-300">
-                          Wins: {stats.totalWins} | Losses: {stats.totalLosses}
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          Payout: ${stats.totalPayout?.toFixed(2) || '0.00'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="w-20 h-20 pl-3">
-                      <Pie
-                        data={chartData}
-                        options={{
-                          plugins: {
-                            legend: { display: false },
-                          },
-                          maintainAspectRatio: false,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <HorseStats horses={horses} horseStats={horseStats} />
 
             <div className="w-full xl:w-3/5 bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-700 p-4 md:p-5 z-10">
               <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
