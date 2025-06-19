@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { signOut, User } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc} from 'firebase/firestore';
 import { auth, db } from '../lib/firebaseConfig';
+
 
 interface HeaderProps {
   user: User | null;
@@ -17,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
+  const [depositAmount, setDepositAmount] = useState<number>(0);
   const [newUsername, setNewUsername] = useState('');
 
   const handleLogout = async () => {
@@ -25,21 +26,51 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
     setShowAvatarDropdown(false);
   };
 
-  const handleDeposit = () => {
-    const amt = parseFloat(depositAmount);
-    if (!isNaN(amt) && amt > 0) {
-      setBalance(balance + amt);
-      setDepositAmount('');
+  const handleDeposit = async () => {
+    if (!user) return;
+  
+    if (!isNaN(depositAmount) && depositAmount > 0) {
+      const truncated = Math.floor(depositAmount * 100) / 100;
+      const balanceBefore = balance;
+      const balanceAfter = balanceBefore + truncated;
+  
+      setBalance(balanceAfter);
+      setDepositAmount(0);
+  
+      await addDoc(collection(db, 'transactions'), {
+        user: user.uid,
+        type: 'deposit',
+        amount: truncated,
+        balanceBefore,
+        balanceAfter,
+        timestamp: Date.now(),
+      });
     }
   };
+  
 
-  const handleWithdraw = () => {
-    const amt = parseFloat(depositAmount);
-    if (!isNaN(amt) && amt > 0 && amt <= balance) {
-      setBalance(balance - amt);
-      setDepositAmount('');
+  const handleWithdraw = async () => {
+    if (!user) return;
+  
+    if (!isNaN(depositAmount) && depositAmount > 0 && depositAmount <= balance) {
+      const truncated = Math.floor(depositAmount * 100) / 100;
+      const balanceBefore = balance;
+      const balanceAfter = balanceBefore - truncated;
+  
+      setBalance(balanceAfter);
+      setDepositAmount(0);
+  
+      await addDoc(collection(db, 'transactions'), {
+        user: user.uid,
+        type: 'withdraw',
+        amount: truncated,
+        balanceBefore,
+        balanceAfter,
+        timestamp: Date.now(),
+      });
     }
   };
+  
 
   return (
     <>
@@ -146,9 +177,19 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
 
             <input
               type="number"
+              step="0.01"
+              min="0"
               placeholder="Enter amount"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
+              value={depositAmount.toString()}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val) && val >= 0) {
+                  const truncated = Math.floor(val * 100) / 100;
+                  setDepositAmount(truncated);
+                } else {
+                  setDepositAmount(0);
+                }
+              }}
               className="w-full px-4 py-2 mb-4 bg-[#333] border border-gray-500 rounded text-white"
             />
 
