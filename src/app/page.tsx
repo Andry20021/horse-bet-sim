@@ -8,7 +8,7 @@ import RaceUI from './components/RaceUI';
 
 import { useEffect, useState, useCallback } from 'react';
 import { auth, db } from './lib/firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 
@@ -78,6 +78,7 @@ export default function Home() {
   return (
     <>
 
+    
       <Header
         user={user}
         username={username}
