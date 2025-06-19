@@ -1,0 +1,50 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.*
+.yarn
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Test coverage
+coverage
+
+# Next.js build output
+.next
+out
+
+# Build artifacts
+build
+dist
+
+# Firebase stuff (not needed in image)
+.firebase
+.firebaserc
+
+# Local config + secrets
+.env
+.env.local
+# allow .env.production for Docker build
+# DO NOT use it for dev if secrets are sensitive
+.vercel
+*.pem
+*.tsbuildinfo
+
+# CI/CD files not needed in container
+apphosting.yaml
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Misc
+.DS_Store
+next-env.d.ts
+
+# Git
+.git
+.gitignore
