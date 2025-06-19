@@ -171,7 +171,7 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                             
                                     const userRef = doc(db, 'users', user.uid);
                                     await updateDoc(userRef, {
-                                        balance: balance,
+                                        balance: won ? balance + payout : balance,
                                         totalGames: increment(1),
                                         totalWins: won ? increment(1) : increment(0),
                                         totalLosses: won ? increment(0) : increment(1),
