@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { GrMoney } from 'react-icons/gr';
 import { GiHorseHead } from 'react-icons/gi';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
+import { auth } from '../lib/firebaseConfig';
 
 interface Horse {
     id: number;
@@ -134,26 +135,37 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                                 }, 0);
                             }
 
-
-
                             (async () => {
                                 await Promise.all(
                                     horses.map(async (horse) => {
                                         const isWinner = horse.name === winHorse.name;
                                         const isSelected = horse.id === selectedHorseId;
                                         const horseRef = doc(db, 'horses', horse.name);
-                                        const payout = isWinner && isSelected ? betAmount * horse.odds * payoutMultiplier : 0;
+                                        const horsePayout = isWinner && isSelected ? betAmount * horse.odds * payoutMultiplier : 0;
 
                                         await updateDoc(horseRef, {
                                             totalWins: isWinner ? increment(1) : increment(0),
                                             totalLosses: isWinner ? increment(0) : increment(1),
-                                            totalPayout: isWinner && isSelected ? increment(payout) : increment(0),
+                                            totalPayout: isWinner && isSelected ? increment(horsePayout) : increment(0),
                                         });
                                     })
                                 );
+                                const user = auth.currentUser;
+                                if (user) {
+                                    await addDoc(collection(db, 'matchHistory'), {
+                                        user: user.uid,
+                                        bet: betAmount,
+                                        odds: selectedHorse.odds,
+                                        profit: payout - betAmount,
+                                        result: won ? 'win' : 'loss',
+                                        selectedHorse: selectedHorse.name,
+                                        winningHorse: winHorse.name,
+                                        timestamp: Date.now(),
+                                    });
+                                }
+
                                 loadStats(horses);
                             })();
-
                         }
                         raceEndedRef.current = true;
                     }
@@ -268,7 +280,7 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                         return (
                             <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-60 rounded-lg">
                                 <div className="bg-[#1E1E1E] px-6 py-5 sm:px-8 sm:py-6 rounded-lg shadow-lg border border-green-600 text-center w-full max-w-sm">
-                                    <h3 className="text-2xl font-bold text-green-400 mb-2">🏆 Winner!</h3>
+                                    <h3 className="text-2xl font-bold text-green-400 mb-2">Winner!</h3>
                                     <p className="text-xl">{winner}</p>
                                     <p className="text-sm text-gray-400 mt-2">
                                         {won ? `You won $${payout.toFixed(2)}!` : 'Better luck next time!'}
