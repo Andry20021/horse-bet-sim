@@ -136,13 +136,19 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                             }
 
                             (async () => {
+                                const user = auth.currentUser;
+                                const won = selectedHorse.name === winHorse.name;
+                                const rawPayout = betAmount * selectedHorse.odds * payoutMultiplier;
+                                const payout = won ? Math.floor(rawPayout * 100) / 100 : 0;
+                                const netProfit = payout - betAmount;
+                            
                                 await Promise.all(
                                     horses.map(async (horse) => {
                                         const isWinner = horse.name === winHorse.name;
                                         const isSelected = horse.id === selectedHorseId;
                                         const horseRef = doc(db, 'horses', horse.name);
                                         const horsePayout = isWinner && isSelected ? betAmount * horse.odds * payoutMultiplier : 0;
-
+                            
                                         await updateDoc(horseRef, {
                                             totalWins: isWinner ? increment(1) : increment(0),
                                             totalLosses: isWinner ? increment(0) : increment(1),
@@ -150,22 +156,32 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                                         });
                                     })
                                 );
-                                const user = auth.currentUser;
+                            
                                 if (user) {
                                     await addDoc(collection(db, 'matchHistory'), {
                                         user: user.uid,
                                         bet: betAmount,
                                         odds: selectedHorse.odds,
-                                        profit: payout - betAmount,
+                                        profit: netProfit,
                                         result: won ? 'win' : 'loss',
                                         selectedHorse: selectedHorse.name,
                                         winningHorse: winHorse.name,
                                         timestamp: Date.now(),
                                     });
+                            
+                                    const userRef = doc(db, 'users', user.uid);
+                                    await updateDoc(userRef, {
+                                        balance: balance,
+                                        totalGames: increment(1),
+                                        totalWins: won ? increment(1) : increment(0),
+                                        totalLosses: won ? increment(0) : increment(1),
+                                        totalProfit: increment(netProfit),
+                                    });
                                 }
-
+                            
                                 loadStats(horses);
                             })();
+                            
                         }
                         raceEndedRef.current = true;
                     }
