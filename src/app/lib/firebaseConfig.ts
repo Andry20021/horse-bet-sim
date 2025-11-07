@@ -1,6 +1,10 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore } from "firebase/firestore";
+
+let app;
+let auth = null;
+let db = null;
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,8 +14,13 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// ✅ Only initialize Firebase if you actually have an API key
+if (firebaseConfig.apiKey && !getApps().length) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} else {
+  console.warn("⚠️ Firebase not initialized (missing or invalid config). Running in local mode.");
+}
 
-export const auth = getAuth(app);
-
-export const db = getFirestore(app); 
+export { app, auth, db };
