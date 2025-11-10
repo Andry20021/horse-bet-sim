@@ -1,76 +1,45 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signOut, User } from 'firebase/auth';
-import { doc, updateDoc, collection, addDoc} from 'firebase/firestore';
-import { auth, db } from '../lib/firebaseConfig';
-
 
 interface HeaderProps {
-  user: User | null;
   username: string;
   balance: number;
   setBalance: (val: number) => void;
   setUsername: (val: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, setUsername }) => {
+const Header: React.FC<HeaderProps> = ({ username, balance, setBalance, setUsername }) => {
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [depositAmount, setDepositAmount] = useState<number>(0);
   const [newUsername, setNewUsername] = useState('');
 
-  const handleLogout = async () => {
-    await signOut(auth);
+  // No logout needed anymore — just closes menu
+  const handleLogout = () => {
     setShowAvatarDropdown(false);
+    alert('Session ended — returning to main menu.');
+    window.location.reload();
   };
 
-  const handleDeposit = async () => {
-    if (!user) return;
-  
-    if (!isNaN(depositAmount) && depositAmount > 0) {
+  // Deposit locally
+  const handleDeposit = () => {
+    if (depositAmount > 0) {
       const truncated = Math.floor(depositAmount * 100) / 100;
-      const balanceBefore = balance;
-      const balanceAfter = balanceBefore + truncated;
-  
-      setBalance(balanceAfter);
+      setBalance(balance + truncated);
       setDepositAmount(0);
-  
-      await addDoc(collection(db, 'transactions'), {
-        user: user.uid,
-        type: 'deposit',
-        amount: truncated,
-        balanceBefore,
-        balanceAfter,
-        timestamp: Date.now(),
-      });
     }
   };
-  
 
-  const handleWithdraw = async () => {
-    if (!user) return;
-  
-    if (!isNaN(depositAmount) && depositAmount > 0 && depositAmount <= balance) {
+  // Withdraw locally
+  const handleWithdraw = () => {
+    if (depositAmount > 0 && depositAmount <= balance) {
       const truncated = Math.floor(depositAmount * 100) / 100;
-      const balanceBefore = balance;
-      const balanceAfter = balanceBefore - truncated;
-  
-      setBalance(balanceAfter);
+      setBalance(balance - truncated);
       setDepositAmount(0);
-  
-      await addDoc(collection(db, 'transactions'), {
-        user: user.uid,
-        type: 'withdraw',
-        amount: truncated,
-        balanceBefore,
-        balanceAfter,
-        timestamp: Date.now(),
-      });
     }
   };
-  
 
   return (
     <>
@@ -88,47 +57,47 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
           <div className="hidden sm:flex items-center space-x-6 text-sm text-gray-300">
             <a href="#" className="hover:text-white">Home</a>
             <a href="#" className="hover:text-white">Games</a>
-            {user && (
-              <>
-                <button
-                  onClick={() => setShowWallet(true)}
-                  className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
-                >
-                  Wallet
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowAvatarDropdown((prev) => !prev)}
-                    className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center hover:bg-gray-500"
-                    title={username}
-                  >
-                    <span className="text-white text-sm font-semibold">
-                      {username.charAt(0).toUpperCase() || "?"}
-                    </span>
-                  </button>
 
-                  {showAvatarDropdown && (
-                    <div className="absolute right-0 mt-2 bg-[#2B2B2B] border border-gray-700 rounded shadow-lg py-2 w-32 z-50">
-                      <button
-                        onClick={() => {
-                          setShowProfile(true);
-                          setShowAvatarDropdown(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
-                      >
-                        Profile
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+            <>
+              <button
+                onClick={() => setShowWallet(true)}
+                className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700"
+              >
+                Wallet
+              </button>
+
+              <div className="relative">
+                <button
+                  onClick={() => setShowAvatarDropdown((prev) => !prev)}
+                  className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center hover:bg-gray-500"
+                  title={username}
+                >
+                  <span className="text-white text-sm font-semibold">
+                    {username.charAt(0).toUpperCase() || "?"}
+                  </span>
+                </button>
+
+                {showAvatarDropdown && (
+                  <div className="absolute right-0 mt-2 bg-[#2B2B2B] border border-gray-700 rounded shadow-lg py-2 w-32 z-50">
+                    <button
+                      onClick={() => {
+                        setShowProfile(true);
+                        setShowAvatarDropdown(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                    >
+                      Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-600"
+                    >
+                      Quit
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
           </div>
         </div>
 
@@ -136,35 +105,35 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
           <div className="sm:hidden mt-3 space-y-2 text-sm text-gray-300">
             <a href="#" className="block px-2 py-1 hover:text-white">Home</a>
             <a href="#" className="block px-2 py-1 hover:text-white">Games</a>
-            {user && (
-              <>
-                <button
-                  onClick={() => setShowWallet(true)}
-                  className="block w-full text-left bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white"
-                >
-                  Wallet
-                </button>
-                <button
-                  onClick={() => {
-                    setShowProfile(true);
-                    setShowAvatarDropdown(false);
-                  }}
-                  className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
-                >
-                  Profile
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
-                >
-                  Logout
-                </button>
-              </>
-            )}
+
+            <>
+              <button
+                onClick={() => setShowWallet(true)}
+                className="block w-full text-left bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white"
+              >
+                Wallet
+              </button>
+              <button
+                onClick={() => {
+                  setShowProfile(true);
+                  setShowAvatarDropdown(false);
+                }}
+                className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
+              >
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="block w-full text-left px-2 py-1 hover:bg-gray-600 text-white"
+              >
+                Quit
+              </button>
+            </>
           </div>
         )}
       </header>
 
+      {/* Wallet Modal */}
       {showWallet && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-[#1E1E1E] p-6 rounded-lg w-full max-w-sm text-white shadow-lg border border-gray-700">
@@ -183,12 +152,7 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
               value={depositAmount.toString()}
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
-                if (!isNaN(val) && val >= 0) {
-                  const truncated = Math.floor(val * 100) / 100;
-                  setDepositAmount(truncated);
-                } else {
-                  setDepositAmount(0);
-                }
+                setDepositAmount(!isNaN(val) && val >= 0 ? Math.floor(val * 100) / 100 : 0);
               }}
               className="w-full px-4 py-2 mb-4 bg-[#333] border border-gray-500 rounded text-white"
             />
@@ -218,6 +182,7 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
         </div>
       )}
 
+      {/* Profile Modal */}
       {showProfile && (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50">
           <div className="bg-[#1E1E1E] p-6 rounded-lg w-full max-w-sm text-white shadow-lg border border-gray-700">
@@ -235,12 +200,9 @@ const Header: React.FC<HeaderProps> = ({ user, username, balance, setBalance, se
             </div>
 
             <button
-              onClick={async () => {
+              onClick={() => {
                 const trimmed = newUsername.trim();
-                if (!user || !trimmed) return;
-
-                const userRef = doc(db, 'users', user.uid);
-                await updateDoc(userRef, { username: trimmed });
+                if (!trimmed) return;
                 setUsername(trimmed);
                 setNewUsername('');
                 setShowProfile(false);

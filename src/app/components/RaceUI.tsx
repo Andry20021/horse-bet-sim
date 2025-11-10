@@ -4,9 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { GrMoney } from 'react-icons/gr';
 import { GiHorseHead } from 'react-icons/gi';
-import { doc, getDoc, updateDoc, increment, collection, addDoc } from 'firebase/firestore';
-import { db } from '../lib/firebaseConfig';
-import { auth } from '../lib/firebaseConfig';
 
 interface Horse {
     id: number;
@@ -43,13 +40,7 @@ const generateHorses = (count: number): Horse[] => {
     return shuffled.slice(0, count).map((name, i) => {
         const odds = parseFloat((Math.random() * 2 + 1.5).toFixed(2));
         const speed = 4.5 - odds;
-        return {
-            id: i + 1,
-            name,
-            odds,
-            speed,
-            icon: nameToIcon(name),
-        };
+        return { id: i + 1, name, odds, speed, icon: nameToIcon(name) };
     });
 };
 
@@ -63,6 +54,9 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
     const [selectedHorseId, setSelectedHorseId] = useState<number | null>(null);
     const raceEndedRef = useRef(false);
 
+    // Store stats in memory for this session only
+    const [localStats, setLocalStats] = useState<Record<string, HorseStats>>({});
+
     const payoutMultiplier = {
         3: 1.0,
         4: 1.2,
@@ -70,25 +64,17 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
         6: 2.0,
     }[horseCount] ?? 1.0;
 
-    const loadStats = useCallback(async (horsesList: Horse[]) => {
-        const entries = await Promise.all(
-            horsesList.map(async (horse) => {
-                try {
-                    const ref = doc(db, 'horses', horse.name);
-                    const snap = await getDoc(ref);
-                    return [horse.name, snap.exists() ? snap.data() : { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
-                } catch {
-                    return [horse.name, { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
-                }
-            })
-        );
-        const stats = Object.fromEntries(entries);
-        setTimeout(() => onStatsReady(stats), 0);
-    }, [onStatsReady]);
+    const loadStats = useCallback((horsesList: Horse[]) => {
+        const stats: Record<string, HorseStats> = {};
+        horsesList.forEach(h => {
+            stats[h.name] = localStats[h.name] || { totalWins: 0, totalLosses: 0, totalPayout: 0 };
+        });
+        onStatsReady(stats);
+    }, [localStats, onStatsReady]);
 
     const handleStartRace = () => {
         if (!selectedHorseId || betAmount <= 0 || betAmount > balance) return;
-        setBalance((prev) => prev - betAmount);
+        setBalance(prev => prev - betAmount);
         setRaceOn(true);
         setWinner(null);
         setPositions(new Array(horseCount).fill(0));
@@ -114,9 +100,9 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
         if (!raceOn) return;
 
         const interval = setInterval(() => {
-            setPositions((prev) => {
+            setPositions(prev => {
                 const newPos = prev.map((p, i) => Math.min(p + Math.random() * horses[i].speed, 100));
-                const winIdx = newPos.findIndex((p) => p >= 100);
+                const winIdx = newPos.findIndex(p => p >= 100);
                 if (winIdx !== -1) {
                     clearInterval(interval);
                     const winHorse = horses[winIdx];
@@ -124,64 +110,32 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                     setRaceOn(false);
 
                     if (!raceEndedRef.current) {
-                        const selectedHorse = horses.find((h) => h.id === selectedHorseId);
+                        const selectedHorse = horses.find(h => h.id === selectedHorseId);
                         if (selectedHorse) {
                             const won = selectedHorse.name === winHorse.name;
                             const rawPayout = betAmount * selectedHorse.odds * payoutMultiplier;
                             const payout = won ? Math.floor(rawPayout * 100) / 100 : 0;
+
                             if (won) {
-                                setTimeout(() => {
-                                    setBalance((prev) => prev + payout);
-                                }, 0);
+                                setTimeout(() => setBalance(prev => prev + payout), 0);
                             }
 
-                            (async () => {
-                                const user = auth.currentUser;
-                                const won = selectedHorse.name === winHorse.name;
-                                const rawPayout = betAmount * selectedHorse.odds * payoutMultiplier;
-                                const payout = won ? Math.floor(rawPayout * 100) / 100 : 0;
-                                const netProfit = payout - betAmount;
-                            
-                                await Promise.all(
-                                    horses.map(async (horse) => {
-                                        const isWinner = horse.name === winHorse.name;
-                                        const isSelected = horse.id === selectedHorseId;
-                                        const horseRef = doc(db, 'horses', horse.name);
-                                        const horsePayout = isWinner && isSelected ? betAmount * horse.odds * payoutMultiplier : 0;
-                            
-                                        await updateDoc(horseRef, {
-                                            totalWins: isWinner ? increment(1) : increment(0),
-                                            totalLosses: isWinner ? increment(0) : increment(1),
-                                            totalPayout: isWinner && isSelected ? increment(horsePayout) : increment(0),
-                                        });
-                                    })
-                                );
-                            
-                                if (user) {
-                                    await addDoc(collection(db, 'matchHistory'), {
-                                        user: user.uid,
-                                        bet: betAmount,
-                                        odds: selectedHorse.odds,
-                                        profit: netProfit,
-                                        result: won ? 'win' : 'loss',
-                                        selectedHorse: selectedHorse.name,
-                                        winningHorse: winHorse.name,
-                                        timestamp: Date.now(),
-                                    });
-                            
-                                    const userRef = doc(db, 'users', user.uid);
-                                    await updateDoc(userRef, {
-                                        balance: won ? balance + payout : balance,
-                                        totalGames: increment(1),
-                                        totalWins: won ? increment(1) : increment(0),
-                                        totalLosses: won ? increment(0) : increment(1),
-                                        totalProfit: increment(netProfit),
-                                    });
-                                }
-                            
-                                loadStats(horses);
-                            })();
-                            
+                            // Update local stats
+                            setLocalStats(prevStats => {
+                                const updated = { ...prevStats };
+                                horses.forEach(horse => {
+                                    const isWinner = horse.name === winHorse.name;
+                                    const prev = updated[horse.name] || { totalWins: 0, totalLosses: 0, totalPayout: 0 };
+                                    updated[horse.name] = {
+                                        totalWins: prev.totalWins + (isWinner ? 1 : 0),
+                                        totalLosses: prev.totalLosses + (isWinner ? 0 : 1),
+                                        totalPayout: prev.totalPayout + (isWinner ? betAmount * horse.odds * payoutMultiplier : 0)
+                                    };
+                                });
+                                return updated;
+                            });
+
+                            loadStats(horses);
                         }
                         raceEndedRef.current = true;
                     }
@@ -196,7 +150,7 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
     return (
         <div className="w-full xl:w-3/5 bg-[#1E1E1E] rounded-xl shadow-lg border border-gray-700 p-4 md:p-5 z-10">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
-                <GiHorseHead className="w-12 h-12 sm:w-16 sm:h-12 object-contain rounded" />
+                <GiHorseHead className="w-12 h-12 sm:w-16 sm:h-12" />
                 <h2 className="text-lg sm:text-xl font-semibold text-center">Horse Racing Simulator</h2>
                 <div className="flex items-center text-sm bg-[#333] px-4 py-2 rounded shadow border border-gray-600 space-x-2">
                     <GrMoney className="text-yellow-300" />
@@ -205,23 +159,25 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
             </div>
 
             <div className="relative w-full rounded-lg overflow-hidden bg-black px-2 sm:px-4 pt-2 pb-4">
-                <div className="relative w-full h-[400px] sm:h-[500px] md:h-[550px] rounded-lg overflow-hidden px-2 sm:px-4 pt-4 pb-8">
+                <div className="relative w-full h-[400px] sm:h-[500px] md:h-[550px] px-2 sm:px-4 pt-4 pb-8">
                     {!raceOn && !winner && (
-                        <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-60 rounded-lg px-2">
-                            <div className="bg-[#1E1E1E] p-4 rounded-lg border border-gray-600 w-full max-w-md z-50 relative">
+                        <div className="absolute inset-0 flex flex-col justify-center items-center bg-black/60 rounded-lg px-2">
+                            <div className="bg-[#1E1E1E] p-4 rounded-lg border border-gray-600 w-full max-w-md">
                                 <h3 className="text-lg sm:text-xl font-semibold mb-4 text-center">Place Your Bet</h3>
+
                                 <label className="block mb-1 text-sm">Number of Horses:</label>
                                 <select
                                     value={horseCount}
-                                    onChange={(e) => setHorseCount(parseInt(e.target.value))}
+                                    onChange={e => setHorseCount(parseInt(e.target.value))}
                                     className="w-full px-3 py-2 bg-[#333] border border-gray-600 rounded text-white mb-4"
                                 >
-                                    {[3, 4, 5, 6].map((count) => (
+                                    {[3, 4, 5, 6].map(count => (
                                         <option key={count} value={count}>{count} Horses</option>
                                     ))}
                                 </select>
-                                <div className="space-y-3 mb-4 max-h-32 overflow-y-auto pr-1 sm:max-h-none sm:overflow-visible">
-                                    {horses.map((horse) => (
+
+                                <div className="space-y-3 mb-4 max-h-32 overflow-y-auto pr-1">
+                                    {horses.map(horse => (
                                         <label key={horse.id} className="flex items-center space-x-3 cursor-pointer text-sm">
                                             <input
                                                 type="radio"
@@ -235,24 +191,17 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                                         </label>
                                     ))}
                                 </div>
+
                                 <input
                                     type="number"
                                     placeholder="Enter bet amount"
                                     value={betAmount.toString()}
-                                    onChange={(e) => {
-                                        const raw = e.target.value;
-                                        const num = parseFloat(raw);
-                                        if (!isNaN(num)) {
-                                            const truncated = Math.floor(num * 100) / 100;
-                                            setBetAmount(truncated);
-                                        } else {
-                                            setBetAmount(0);
-                                        }
-                                    }}
+                                    onChange={e => setBetAmount(parseFloat(e.target.value) || 0)}
                                     step="0.01"
                                     min="0"
                                     className="w-full px-4 py-2 bg-[#333] border border-gray-500 rounded text-white"
                                 />
+
                                 <button
                                     onClick={handleStartRace}
                                     className="mt-4 w-full bg-green-600 py-2 rounded hover:bg-green-700 disabled:bg-gray-600"
@@ -289,12 +238,12 @@ const RaceUI: React.FC<RaceUIProps> = ({ balance, setBalance, onHorsesReady, onS
                     ))}
 
                     {winner && (() => {
-                        const selectedHorse = horses.find((h) => h.id === selectedHorseId);
+                        const selectedHorse = horses.find(h => h.id === selectedHorseId);
                         const won = selectedHorse?.name === winner;
                         const payout = won ? betAmount * (selectedHorse?.odds ?? 1) * payoutMultiplier : 0;
 
                         return (
-                            <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-60 rounded-lg">
+                            <div className="absolute inset-0 flex justify-center items-center bg-black/60 rounded-lg">
                                 <div className="bg-[#1E1E1E] px-6 py-5 sm:px-8 sm:py-6 rounded-lg shadow-lg border border-green-600 text-center w-full max-w-sm">
                                     <h3 className="text-2xl font-bold text-green-400 mb-2">Winner!</h3>
                                     <p className="text-xl">{winner}</p>

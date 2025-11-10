@@ -3,19 +3,16 @@
 import Header from './components/Header';
 import LiveChat from './components/LiveChat';
 import HorseStats from './components/HorseStats';
-import Login from './components/Login';
 import RaceUI from './components/RaceUI';
-
-import { useEffect, useState, useCallback } from 'react';
-import { auth, db } from './lib/firebaseConfig';
-import { doc, getDoc} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
-  const [username, setUsername] = useState('');
-  const [balance, setBalance] = useState(10000);
-  const [user, setUser] = useState<User | null>(null);
+  const STARTING_BALANCE = 10000;
+  const DEFAULT_USERNAME = 'Guest';
+
+  const [balance, setBalance] = useState(STARTING_BALANCE);
+  const [username] = useState(DEFAULT_USERNAME);
+  const [user] = useState({ name: DEFAULT_USERNAME }); // fake user object so old props still work
   const [horses, setHorses] = useState<Horse[]>([]);
   const [horseStats, setHorseStats] = useState<Record<string, HorseStats>>({});
 
@@ -33,81 +30,50 @@ export default function Home() {
     totalPayout: number;
   };
 
-
-
-  const loadStats = useCallback(async () => {
-    const entries = await Promise.all(
-      horses.map(async (horse) => {
-        try {
-          const ref = doc(db, 'horses', horse.name);
-          const snap = await getDoc(ref);
-          return [horse.name, snap.exists() ? snap.data() : { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
-        } catch {
-          return [horse.name, { totalWins: 0, totalLosses: 0, totalPayout: 0 }];
-        }
-      })
+  // 🎲 Generate random stats for each horse
+  const generateRandomStats = (horses: Horse[]) => {
+    const stats = Object.fromEntries(
+      horses.map(horse => [
+        horse.name,
+        {
+          totalWins: Math.floor(Math.random() * 10),
+          totalLosses: Math.floor(Math.random() * 10),
+          totalPayout: Math.floor(Math.random() * 5000),
+        },
+      ])
     );
-    setHorseStats(Object.fromEntries(entries));
+    setHorseStats(stats);
+  };
+
+  useEffect(() => {
+    if (horses.length > 0) {
+      generateRandomStats(horses);
+    }
   }, [horses]);
 
-
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(userRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.balance !== undefined) setBalance(data.balance);
-          if (data.username) setUsername(data.username);
-        }
-      }
-      setUser(currentUser);
-    });
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    if (horses.length === 0) return;
-    loadStats();
-  }, [horses, loadStats]);
-
-
-
   return (
-    <>
-
-    
+    <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
+      {/* Header gets username and balance */}
       <Header
-        user={user}
         username={username}
         balance={balance}
         setBalance={setBalance}
-        setUsername={setUsername}
+        setUsername={() => {}}
       />
 
-      {!user && <Login />}
+      <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
+        <HorseStats horses={horses} horseStats={horseStats} />
 
-      {user && (
-        <main className="min-h-screen bg-[#0F0F0F] text-white font-sans">
-          <section className="relative flex flex-wrap xl:flex-nowrap justify-center items-start py-16 px-4 gap-4">
+        <RaceUI
+          balance={balance}
+          setBalance={setBalance}
+          onHorsesReady={setHorses}
+          onStatsReady={setHorseStats}
+        />
 
-            <HorseStats horses={horses} horseStats={horseStats} />
-
-            <RaceUI
-              balance={balance}
-              setBalance={setBalance}
-              onHorsesReady={setHorses}
-              onStatsReady={setHorseStats}
-            />
-
-            <LiveChat username={username} />
-
-          </section>
-        </main>
-      )}
-
-    </>
+        {/* LiveChat gets username for message display */}
+        <LiveChat username={username} />
+      </section>
+    </main>
   );
 }

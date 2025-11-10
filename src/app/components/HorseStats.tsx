@@ -24,6 +24,8 @@ interface HorseStatsProps {
   horseStats: { [horseName: string]: Stats };
 }
 
+
+
 const HorseStats: React.FC<HorseStatsProps> = ({ horses, horseStats }) => {
   return (
     <div className="w-full xl:w-1/5 flex flex-col space-y-4 z-30 ">
@@ -62,7 +64,7 @@ const HorseStats: React.FC<HorseStatsProps> = ({ horses, horseStats }) => {
                   Wins: {stats.totalWins} | Losses: {stats.totalLosses}
                 </p>
                 <p className="text-sm text-gray-400">
-                  Payout: ${stats.totalPayout?.toFixed(2) || '0.00'}
+                  Total Profit: ${stats.totalPayout?.toFixed(2) || '0.00'}
                 </p>
               </div>
             </div>
